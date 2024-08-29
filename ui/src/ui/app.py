@@ -9,6 +9,9 @@ from litestar.response import Template
 from litestar.template.config import TemplateConfig
 from litestar.contrib.jinja import JinjaTemplateEngine
 from pathlib import Path
+from typing import Annotated
+from litestar.enums import RequestEncodingType
+from litestar.params import Body
 
 checks = []
 
@@ -19,7 +22,7 @@ class Check:
     type: str
 
 
-@get("/api/checks/{check_id:uuid}")
+@get("/checks/{check_id:uuid}")
 async def get_check(check_id: UUID4) -> dict[str, int]:
     for check in checks:
         if check.id == check_id:
@@ -28,8 +31,15 @@ async def get_check(check_id: UUID4) -> dict[str, int]:
             return {"check_id": "not found"}
 
 
-@post("/api/checks")
-async def create_check(data: Check) -> dict[str, str]:
+@get("/checks")
+async def get_checks() -> list[dict[str, str]]:
+    return [{"check_id": check.id, "check_type": check.type} for check in checks]
+
+
+@post("/checks")
+async def create_check(
+    data: Annotated[Check, Body(media_type=RequestEncodingType.URL_ENCODED)],
+) -> dict[str, str]:
     checks.append(data)
     return {"check_id": data.id, "check_type": data.type}
 
@@ -40,9 +50,10 @@ async def index(request: HTMXRequest) -> Template:
     return HTMXTemplate(template_name="index.html")
 
 
-app = Litestar(route_handlers=[index, create_check, get_check],
-               request_class=HTMXRequest,
-               template_config=TemplateConfig(
-                   directory=Path(__file__).parent / "templates",
-                   engine=JinjaTemplateEngine
-               ))
+app = Litestar(
+    route_handlers=[index, get_checks, create_check, get_check],
+    request_class=HTMXRequest,
+    template_config=TemplateConfig(
+        directory=Path(__file__).parent / "templates", engine=JinjaTemplateEngine
+    ),
+)
