@@ -18,30 +18,22 @@ checks = []
 
 @dataclass
 class Check:
-    id: UUID4
+    id: str
     type: str
-
-
-@get("/checks/{check_id:uuid}")
-async def get_check(check_id: UUID4) -> dict[str, int]:
-    for check in checks:
-        if check.id == check_id:
-            return {"check_id": check.id, "check_type": check}
-        else:
-            return {"check_id": "not found"}
+    dataset: str
+    column: str
 
 
 @get("/checks")
-async def get_checks() -> list[dict[str, str]]:
-    return [{"check_id": check.id, "check_type": check.type} for check in checks]
-
+async def list_checks() -> HTMXTemplate:
+    return HTMXTemplate(template_name="checks.html", context={"checks": checks})
 
 @post("/checks")
 async def create_check(
     data: Annotated[Check, Body(media_type=RequestEncodingType.URL_ENCODED)],
-) -> dict[str, str]:
+) -> HTMXTemplate:
     checks.append(data)
-    return {"check_id": data.id, "check_type": data.type}
+    return HTMXTemplate(template_name="alert.html", context={"message": "Check created"})
 
 
 @get(path="/")
@@ -51,7 +43,7 @@ async def index(request: HTMXRequest) -> Template:
 
 
 app = Litestar(
-    route_handlers=[index, get_checks, create_check, get_check],
+    route_handlers=[index, create_check, list_checks],
     request_class=HTMXRequest,
     template_config=TemplateConfig(
         directory=Path(__file__).parent / "templates", engine=JinjaTemplateEngine
